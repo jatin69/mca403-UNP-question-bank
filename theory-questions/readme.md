@@ -326,6 +326,115 @@ Fig 4.14, 4.15, 4.16, 4.17 - pg 123
 
 </details>
 
+<details>
+<summary>
+What is a signal disposition? What are the choices for the disposition of software interrupts?
+</summary>
+ 
+Every signal has a disposition, which is also called the action associated with the signal. We set the disposition of a signal by calling the sigaction function and we have three choices for the disposition:
+
+- We can provide a function that is called whenever a specific signal occurs. This function is called a signal handler and this action is called catching a signal. The two signals SIGKILL and SIGSTOP cannot be caught. Our function is called with a single integer argument that is the signal number and the function returns nothing. Its function prototype is therefore `void handler (int signo);`
+- We can ignore a signal by setting its disposition to `SIG_IGN`. The two signals SIGKILL and SIGSTOP cannot be ignored.
+- We can set the default disposition for a signal by setting its disposition to `SIG_DFL`. The default is normally to terminate a process on receipt of a signal, with certain signals also generating a core image of the process in its current working directory. There are a few signals whose default disposition is to be ignored: SIGCHLD and SIGURG
+
+
+#### Installing a signal handler
+
+```c
+void installSignalHandler(int signalType, void (*singalHandlerFunction)(int)) {
+	struct sigaction sa;
+	sa.sa_handler = singalHandlerFunction;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	if (sigaction(signalType, &sa, NULL) == -1) {
+		printError();
+		exit(1);
+	}
+}
+```
+
+#### POSIX Signal semantic
+
+- Once a signal handler is installed, it remains installed
+- While a signal handler is executing, the signal being delivered is blocked. Furthermore, any additional signals that were specified in the sa_mask signal set passed to sigaction when the handler was installed are also blocked. In the code above, we set sa_mask to the empty set, meaning no additional signals are blocked other than the signal being caught.
+- If a signal is generated one or more times while it is blocked, it is normally delivered only one time after the signal is unblocked. That is, by default, Unix signals are not queued.
+- It is possible to selectively block and unblock a set of signals using the sigprocmask function. This lets us protect a critical region of code by preventing certain signals from being caught while that region of code is executing.
+
+</details>
+
+<details>
+<summary>
+Explain with an example why we need to use waitpid() instead wait() while writing the signal handler to avoid zombies. Also see code segment to reap off zombies.
+</summary>
+
+Reason 1 : Basics (waitpid is non blocking) - 
+
+- If there are no terminated children for the process calling wait, but the process has one or more children that are still executing, then wait blocks until the first of the existing children terminates.
+- waitpid gives us more control over which process to wait for and whether or not to block. First, the pid argument lets us specify the process ID that we want to wait for. A value of -1 says to wait for the first of our children to terminate. The options argument lets us specify additional options. The most common option is WNOHANG. This option tells the kernel not to block if there are no terminated children.
+
+Reason 2 : Serious reason (with example) (lets say we use `wait`, whats the problem then)- 
+
+- Assume a server program, which has 5 children dealing with 5 clients.
+- lets says all of the client send `FIN` at the same time, and coincidently all 5 children of server terminate simultaneously. so 5 `SIGCHLD` signals are generated.
+- Note that, because UNIX signals are not queued, the signal handler is only executed once.
+- This means, termination of only 1 of the 5 children is handled, other 4 are still in zombie state.
+- Therefore, Establishing a signal handler and calling wait from that handler are insufficient for preventing zombies. 
+- The correct solution is to call `waitpid` instead of `wait`. This works because we call waitpid within a loop, fetching the status of any of our children that have terminated. We must specify the WNOHANG option: This tells waitpid not to block if there are running children that have not yet terminated. 
+- we cannot call `wait` in a loop, because there is no way to prevent `wait` from blocking if there are
+running children that have not yet terminated.
+
+![Waitpid demo](./data/waitpid-usage.png)
+
+Handling zombies
+
+```c
+// install handler
+signal(SIGCHLD, sig_chld);
+
+void sig_chld(int signo){
+  pid_t pid;
+  int stat;
+  while((pid = waitpid(-1, &stat, WNOHANG)) > 0){
+    printf("child %d terminated\n", pid);
+  }
+  return;
+}
+```
+
+#### Signals interrupting system calls
+
+Note that if signal occurs during `accept` which is a blocking call, once the handler is done, accept must be restarted, or else it gives error `EINTR`. we can handle this error as follows - 
+
+```c
+for ( ; ; ) {
+  clilen = sizeof(cliaddr);
+  if ( (connfd = accept (listenfd, (SA *) &cliaddr, &clilen)) < 0){
+    if (errno == EINTR){
+      continue;   /* back to for() */
+    } 
+    else{
+      err_sys("accept error");
+    }
+  }
+  // do something else
+}
+```
+
+#### More signals
+
+- What happens if the client ignores the error return from readline and writes more data to the server? When a process writes to a socket that has received an RST, the SIGPIPE signal is sent to the process. The default action of this signal is to terminate the process. If the process either catches the signal and returns from the signal handler, or ignores the signal, the write operation returns EPIPE.
+
+</details>
+
+-------------
+
+- What are the different ways of setting RES_USE_INET6 resolver option?
+- What happens when select is called in the following cases? ( Also see - coding question on select )
+  - If we specify the timeout argument as a null pointer.
+  - If we specify all three middle arguments (readset, writeset and exceptset) as null.
+- Compare blocking I/O model, non-blocking I/O model and I/O multiplexing model.
+- State the conditions under which a descriptor is ready for reading
+
 -------------
 
 <details><summary>What is the purpose of SO-REUSEADDR option? Explain.</summary>
@@ -336,26 +445,22 @@ pg 210, 4 big points
 
 -------------
 
-- What happens when SO_LINGER socket option is called:
+<details>
+<summary>
+What happens when SO_LINGER socket option is called:
   - If l_onoff is nonzero and Ninger is nonzero.
   - If l_onoff is nonzero and 1Jinger is zero.
+</summary>
 
 Section 7.5
 
+</details>
+
 - Explain Servent Structure
 
-- What is a signal disposition? What are the choices for the disposition of software interrupts?
 
 - What do you mean by connected UDP sockets? Does it start the 3WHS (3-way handshake) process? What is the purpose of specifying `AF_UNSPEC` in address family of connect call in case of UDP sockets.
 - How the port number allocated to a UDP client if it does not call bind().
-
-- What are the different ways of setting RES_USE_INET6 resolver option?
-- What happens when select is called in the following cases? ( Also see - coding question on select )
-  - If we specify the timeout argument as a null pointer.
-  - If we specify all three middle arguments (readset, writeset and exceptset) as null.
-- Compare blocking I/O model, non-blocking I/O model and I/O multiplexing model.
-- Explain with an example why we need to use waitpid() instead wait() while writing the signal handler to avoid zombies. Also see code segment to reap off zombies
-- State the conditions under which a descriptor is ready for reading
 
 ## Diagrams
 
@@ -388,17 +493,23 @@ page 59, Fig 2.5
 
 - We have two applications, one using TCP and other using UDP. 4096 bytes are in the receive buffer for the TCP socket and two 2048-bye datagrams are in the receive buffer for the UDP socket. The TCP application calls read() with the third argument of 4096 and UDP applicationcalls recvfrom() with third argument of 4096, Is there any difference?
 
-- Output of code
+<details>
+<summary>
+Output of fork code
+</summary>
 
-  ```c
-  include <stdio.h>
-  include <sys/types.h>
-  int main(){
-      pid__tpid = fork();
-      if(pid == 0)
-      printf("Child process created\n");
-      else
-      printf("Parent process created\n");
-      return 0;
-  }
-  ```
+```c
+include <stdio.h>
+include <sys/types.h>
+int main(){
+    pid__tpid = fork();
+    if(pid == 0)
+    printf("Child process created\n");
+    else
+    printf("Parent process created\n");
+    return 0;
+}
+```
+
+Order is decided by scheduler, but ideally child should run first, to eliminate `copy on write` overhead
+</details>

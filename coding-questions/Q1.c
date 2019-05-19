@@ -19,7 +19,7 @@ int main()
 		perror("Can't open stream socket.");
 		exit(-1);
 	}
-
+	
 	// Set server_addr
 	bzero(&server_addr, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
