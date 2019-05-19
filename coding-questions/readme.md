@@ -1,6 +1,9 @@
 # Coding-Questions
 
-1. Write a function that return localhost's IP address.
+1. Usage of `getsockname`
+
+   - Write a function that return localhost's IP address.
+   - If kernel chooses an ephemeral port number for our socket (we called bind() with port number field as 0), how can you obtain the value of port assigned?
 
 2. Write a function `int sockfd_to_family(int sockfd)` that returns the address family of a socket.
 

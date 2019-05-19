@@ -3,5 +3,5 @@
 Collection of Unix Networking Programming Questions.
 
 - Find the previous year questions pdf [here](./UNP-previous-year-questions.pdf)
-- Find the theory questions and solutions [here](./theory-questions.md)
+- Find the theory questions and solutions [here](./theory-questions)
 - Find the coding questions and solutions [here](./coding-questions)
