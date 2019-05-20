@@ -13,6 +13,14 @@
 4. Write a code segment to handle zombies by using a signal handler?
 
 5. Write a function to change the values of the low water marks of socket send and receive buffers.
+Two socket options, `SO_RCVLOWAT` and `SO_SNDLOWAT`, let us change these two low-water marks.
+```c
+#include <sys/socket.h>
+
+int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+int setsockopt(int sockfd, int level, int optname, const void *optval socklen_t optlen);
+
+```
 
 6. Write a code segment for server that creates one TCP port and one UDP port, and waits on both of them using select. 
 
