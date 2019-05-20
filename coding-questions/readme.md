@@ -14,7 +14,9 @@
 
 5. Write a function to change the values of the low water marks of socket send and receive buffers.
 
-6. Write a code segment for server that creates one TCP port and one UDP port, and waits on both of them using select.
+6. Write a code segment for server that creates one TCP port and one UDP port, and waits on both of them using select. 
+
+section 8.15
 
 7. Write a program for UDP echo client and server that verifies the returned socket address of who sent the reply and ignore any received datagrams that are not from the server the whom the client sent the datagram.
 
@@ -29,7 +31,7 @@
    - Client receives the string and displays on the terminal.
    - Client disconnects from the server
 
-9. Write a TCP client and TCP server implementation in C/C++. Specification client and server are mentioned below:
+9.  Write a TCP client and TCP server implementation in C/C++. Specification client and server are mentioned below:
 
    - Server is running a service on port 11002.
    - Client connects to that service of the server.

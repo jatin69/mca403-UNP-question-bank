@@ -4,7 +4,7 @@
 TCP state transition diagram - IMPORTANT
 </summary>
 
-![TCP states](./data/tcp-states.png)
+![TCP states](data/tcp-states.png)
 
 </details>
 
@@ -52,7 +52,7 @@ pg 81, section 3.3
 - Three functions, bind, connect, and sendto, pass a socket address structure from the process to the kernel. One argument to these three functions is the pointer to the socket address structure and another argument is the integer size of the structure.
 - Since the kernel is passed both the pointer and the size of what the pointer points to, it knows exactly how much data to copy from the process into the kernel. Figure 3.7 shows this scenario.
 
-![process to kernel](./data/socket-address-structure-passing-from-process-to-kernel.png)
+![process to kernel](data/socket-address-structure-passing-from-process-to-kernel.png)
 
 ## Kernel to process
 
@@ -61,7 +61,7 @@ pg 81, section 3.3
 - This type of argument is called a value-result argument. Figure 3.8 shows this
 scenario.
 
-![kernel to process](./data/socket-address-structure-passing-from-kernel-to-process.png)
+![kernel to process](data/socket-address-structure-passing-from-kernel-to-process.png)
 
 </details>
 
@@ -95,7 +95,8 @@ Why do we need TIME_WAIT State during termination of TCP connection? Briefly exp
 
 
 <details><summary>
-What are socket send and receive buffers? Write a function to change the values of the low water marks of both the buffers.
+What are socket send and receive buffers? 
+Write a function to change the values of the low water marks of both the buffers.
 </summary>
 
 - when a application calls send/write, the kernel copies all the data from the application buffer to the socket send buffer. 
@@ -106,7 +107,12 @@ What are socket send and receive buffers? Write a function to change the values 
 - Then broken to MTU if MSS > MTU-40 or MTU-60
 - Until ack is received of this data, the data remains in the send buffer
 
+The purpose of the receive and send low-water marks is to give the application control over how much data must be available for reading or how much space must be available for writing before `select` returns a readable or writable status. For example, if we know that our application has nothing productive to do unless at least 64 bytes of data are present, we can set the receive low-water mark to 64 to prevent select from waking us up if less than 64 bytes are ready for reading. 
+
+As long as the send low-water mark for a UDP socket is less than the send buffer size (which should always be the default relationship), the UDP socket is always writable, since a connection is not required.
+
 pg 69, pg 207
+Two socket options, `SO_RCVLOWAT` and `SO_SNDLOWAT`, let us change these two low-water marks.
 
 </details>
 
@@ -115,7 +121,7 @@ Differentiate between network byte order and host byte order. How network byte o
 </summary>
 
 - little endian and big endian
-![byte ordering](./data/byte-ordering.png)
+![byte ordering](data/byte-ordering.png)
 
 functions use for conversion -
 
@@ -141,10 +147,10 @@ functions use for conversion -
 <details><summary>Briefly explain IPv6 Socket Address Structure.</summary>
 
 Fig 3.1 - ipv4 socket address structure
-![ipv4 socket address structure](./data/ipv4-socket-address-structure.png)
+![ipv4 socket address structure](data/ipv4-socket-address-structure.png)
 
 Fig 3.4 - ipv6 socket address structure
-![ipv6 socket address structure](./data/ipv6-socket-address-structure.png)
+![ipv6 socket address structure](data/ipv6-socket-address-structure.png)
 
 - the `sin6_flowinfo` is divided into 3 fields
   - lower order 24 bits for flow label
@@ -152,7 +158,7 @@ Fig 3.4 - ipv6 socket address structure
   - next 4 are reserved
 
 Fig 3.5 - comparison of socket address structures
-![comparison of socket address structures](./data/comparison-of-socket-address-structures.png)
+![comparison of socket address structures](data/comparison-of-socket-address-structures.png)
 
 </details>
 
@@ -187,7 +193,7 @@ In the function `const char inet_ntop(...., size_t len)` . What is the value of 
 
 summary 
 
-![summary](./data/summary-of-address-conversion-functions.png)
+![summary](data/summary-of-address-conversion-functions.png)
 
 </details>
 
@@ -220,10 +226,10 @@ summary
   - The default action of close with a TCP socket is to mark the socket as closed and return to the process immediately. The socket descriptor is no longer usable by the process: It cannot be used as an argument to read or write. But, TCP will try to send any data that is already queued to be sent to the other end, and after this occurs, the normal TCP connection termination sequence takes place.
   - Note that : close decrements ref count by 1
   - We must also be aware of what happens in our concurrent server if the parent does not call close for each connected socket returned by accept. First, the parent will eventually run out of descriptors, as there is usually a limit to the number of descriptors that any process can have open at any time. But more importantly, none of the client connections will be terminated. When the child closes the connected socket, its reference count will go from 2 to 1 and it will remain at 1 since the parent never closes the connected socket. This will prevent TCP's connection termination sequence from occurring, and the connection will remain open.
-- `shutdown(int sockfd)`
+- `int shutdown(int sockfd, int howto);`
   - At the end of Section 4.8, we mentioned that when the parent process in our concurrent server closes the connected socket, this just decrements the reference count for the descriptor. Since the reference count was still greater than 0, this call to close did not initiate TCP's four-packet connection termination sequence. This is the behavior we want with our concurrent server with the connected socket that is shared between the parent and child.
-  - If we really want to send a FIN on a TCP connection, the shutdown function can be used (Section 6.6) instead of close.
-  - Section 6.5
+  - If we really want to send a FIN on a TCP connection, the shutdown function can be used instead of close. With shutdown, we can initiate TCP's normal connection termination sequence (the four segments beginning with a FIN), regardless of the reference count.
+  - Typical values for the howto argument that you will encounter will be 0 (close the read half), 1 (close the write half), and 2 (close the read half and the write half).
 
 </details>
 
@@ -283,7 +289,7 @@ Backlog specifies the maximum number of connections the kernel should queue for 
 - An incomplete connection queue, which contains an entry for each SYN that has arrived from a client for which the server is awaiting completion of the TCP three-way handshake. These sockets are in the SYN_RCVD state (Figure 2.4).
 - A completed connection queue, which contains an entry for each client with whom the TCP three-way handshake has completed. These sockets are in the ESTABLISHED state.
 
-![TCP Backlog queues](./data/tcp-backlog-queues.png)
+![TCP Backlog queues](data/tcp-backlog-queues.png)
 
 - When a SYN arrives from a client, TCP creates a new entry on the incomplete queue and then responds with the second segment of the three-way handshake: the server's SYN with an ACK of the client's SYN.
 - This entry will remain on the incomplete queue until the third segment of the three-way handshake arrives (the client's ACK of the server's SYN), or until the entry times out (1 RTT - from receiving the 1 of 3 handshake packet to 3 to 3 handshake packet - fig 4.9 - pg 112). 
@@ -383,7 +389,7 @@ Reason 2 : Serious reason (with example) (lets say we use `wait`, whats the prob
 - we cannot call `wait` in a loop, because there is no way to prevent `wait` from blocking if there are
 running children that have not yet terminated.
 
-![Waitpid demo](./data/waitpid-usage.png)
+![Waitpid demo](data/waitpid-usage.png)
 
 Handling zombies
 
@@ -426,41 +432,185 @@ for ( ; ; ) {
 
 </details>
 
--------------
+<details>
+<summary>
+Compare blocking I/O model, non-blocking I/O model and I/O multiplexing model.
+</summary>
 
-- What are the different ways of setting RES_USE_INET6 resolver option?
-- What happens when select is called in the following cases? ( Also see - coding question on select )
-  - If we specify the timeout argument as a null pointer.
-  - If we specify all three middle arguments (readset, writeset and exceptset) as null.
-- Compare blocking I/O model, non-blocking I/O model and I/O multiplexing model.
-- State the conditions under which a descriptor is ready for reading
+Section 6.2 
 
--------------
+Two Major things needs to be done - 
+- Waiting for the data to be ready
+- Copying the data from the kernel to the process
 
-<details><summary>What is the purpose of SO-REUSEADDR option? Explain.</summary>
+- Blocking IO Model (fig 6.1)
+  - default mode in sockets
+  - blocks until data comes in
+  - blocks until `data comes in` and `copied` from kernel to process
+- Non-Blocking IO Model (fig 6.2)
+  - When we set a socket to be nonblocking, we are telling the kernel "when an I/O operation that I request cannot be completed without putting the process to sleep, do not put the process to sleep, but return an error instead."
+  - The first three times that we call recvfrom, there is no data to return, so the kernel immediately returns an error of `EWOULDBLOCK` instead. The fourth time we call recvfrom, a datagram is ready, it is copied into our application buffer, and recvfrom returns successfully. We then process the data.
+  - When an application sits in a loop calling recvfrom on a nonblocking descriptor like this, it is called polling. The application is continually polling the kernel to see if some operation is ready. This is often a waste of CPU time.
+- I/O Multiplexing Model (fig 6.3)
+  - With I/O multiplexing, we call select or poll and block in one of these two system calls, instead of blocking in the actual I/O system call. We block in a call to select, waiting for the datagram socket to be readable. When select returns that the socket is readable, we then call recvfrom to copy the datagram into our application buffer.
+  - The advantage in using select, unlike the blocking model, is that we can wait for more than one descriptor to be ready.
+- We can also use signals, telling the kernel to notify us with the SIGIO signal when the descriptor is ready. We call this signal-driven I/O
+  - We first enable the socket for signal-driven I/O and install a signal handler using the sigaction system call. The return from this system call is immediate and our process continues; it is not blocked. 
+  - When the datagram is ready to be read, the SIGIO signal is generated for our process. We can either read the datagram from the signal handler by calling recvfrom and then notify the main loop that the data is ready to be processed or we can notify the main loop and let it read the datagram.
+- Async IO
+  - These functions work by telling the kernel to start the operation and to notify us when the entire operation (including the copy of the data from the kernel to our buffer) is `complete`. 
+  - The main difference between this model and the signal-driven I/O model in the previous section is that with signal-driven I/O, the kernel tells us when an I/O operation can be initiated, but with asynchronous I/O, the kernel tells us when an I/O operation is complete.
+  
+![Comparison of IO Models](data/io-models.png)
 
-pg 210, 4 big points
 
 </details>
-
--------------
 
 <details>
 <summary>
-What happens when SO_LINGER socket option is called:
-  - If l_onoff is nonzero and Ninger is nonzero.
-  - If l_onoff is nonzero and 1Jinger is zero.
+What happens when select is called in the following cases? ( Also see - coding question on select )
+ - If we specify the timeout argument as a null pointer.
+ - If we specify all three middle arguments (readset, writeset and exceptset) as null.
 </summary>
 
-Section 7.5
+In select, there are 3 possibilities -
+
+- Wait forever— Return only when one of the specified descriptors is ready for I/O. For this, we specify the timeout argument as a null pointer.
+- Wait up to a fixed amount of time— Return when one of the specified descriptors is ready for I/O, but do not wait beyond the number of seconds and microseconds specified in the timeval structure pointed to by the timeout argument.
+  ```c
+  struct timeval {
+  long tv_sec; /* seconds */
+  long tv_usec; /* microseconds */
+  };
+  ```  
+- Do not wait at all— Return immediately after checking the descriptors. This is called polling. To specify this, the timeout argument must point to a timeval structure and the timer value (the number of seconds and microseconds specified by the structure) must be 0.
+
+Any of the middle three arguments to select, readset, writeset, or exceptset, can be specified as a null pointer if we are not interested in that condition. Indeed, if all three pointers are null, then `we have a higher precision timer than the normal Unix sleep function ` (which sleeps for multiples of a second). The poll function provides similar functionality. 
+
+</details> 
+
+
+<details>
+<summary>
+State the conditions under which a descriptor is ready for reading / writing.
+</summary>
+
+A socket is ready for reading if any of the following four conditions is true:
+- The number of bytes of data in the socket receive buffer is greater than or equal to the current size of the low-water mark for the socket receive buffer. A read operation on the socket will not block and will return a value greater than 0 (i.e., the data that is ready to be read). We can set this low-water mark using the `SO_RCVLOWAT` socket option. It defaults to 1 for TCP and UDP sockets.
+- The read half of the connection is closed (i.e., a TCP connection that has received a FIN). A read operation on the socket will not block and will return 0 (i.e., EOF).
+- The socket is a listening socket and the number of completed connections is nonzero. An accept on the listening socket will normally not block, although it can block sometimes.
+- A socket error is pending. A read operation on the socket will not block and will return an error (–1) with errno set to the specific error condition. These pending errors can also be fetched and cleared by
+calling getsockopt and specifying the SO_ERROR socket option.
+
+
+A socket is ready for writing if any of the following four conditions is true:
+- The number of bytes of available space in the socket send buffer is greater than or equal to the current size of the low-water mark for the socket send buffer and either: (i) the socket is connected, or (ii) the socket does not require a connection (e.g., UDP). This means that if we set the socket to nonblocking (Chapter 16), a write operation will not block and will return a positive value (e.g., the number of bytes accepted by the transport layer). We can set this low-water mark using the SO_SNDLOWAT socket option. This low-water mark normally defaults to 2048 for TCP and UDP sockets.
+- The write half of the connection is closed. A write operation on the socket will generate SIGPIPE.
+- A socket using a non-blocking connect has completed the connection, or the connect has failed.
+- A socket error is pending. A write operation on the socket will not block and will return an error (–1) with errno set to the specific error condition. These pending errors can also be fetched and cleared by calling getsockopt with the SO_ERROR socket option
+
+![Select Summary](data/select-summary.png)
+
+</details>
+ 
+<details>
+<summary>
+What happens when SO_LINGER socket option is called:
+  - If l_onoff is nonzero and l_linger is nonzero.
+  - If l_onoff is nonzero and l_linger is zero.
+</summary>
+
+This function specifies how `close` function operates for a connection-oriented protocol (e.g., for TCP and SCTP, but not for UDP). By default, close returns immediately, but if there is any data still remaining in the socket send buffer, the system will try to deliver the data to the peer.
+
+The `SO_LINGER` socket option lets us change this default. This option requires the following structure to be passed between the user process and the kernel. It is defined by including `<sys/socket.h>`.
+```c
+struct linger {
+int l_onoff; /* 0=off, nonzero=on */
+int l_linger; /* linger time, POSIX specifies units as seconds */
+};
+```
+
+Calling setsockopt leads to one of the following three scenarios, depending on the values of the two structure members - 
+
+- If l_onoff is 0, the option is turned off. The value of l_linger is ignored and the previously discussed TCP default applies: close returns immediately.
+- If l_onoff is nonzero and l_linger is zero, TCP aborts the connection when it is closed. That is, TCP discards any data still remaining in the socket send buffer and sends an RST to the peer, not the normal four-packet connection termination sequence. This avoids TCP's TIME_WAIT state, but in doing so, leaves open the possibility of another incarnation of this connection being created within 2MSL seconds and having old duplicate segments from the just-terminated connection being incorrectly delivered to the new incarnation.
+- If l_onoff is nonzero and l_linger is nonzero, then the kernel will linger when the socket is closed. That is, if there is any data still remaining in the socket send buffer, the process is put to sleep until either: 
+  - (i) all the data is sent and acknowledged by the peer TCP, or 
+  - (ii) the linger time expires. If the socket has been set to nonblocking (Chapter 16), it will not wait for the close to complete, even if the linger time is nonzero. 
+  - When using this feature of the `SO_LINGER` option, it is important for the application to check the
+return value from close, because if the linger time expires before the remaining data is sent and acknowledged, close returns `EWOULDBLOCK` and any remaining data in the send buffer is discarded.
+
+![SO Linger summary](data/so-linger-summary.png)
 
 </details>
 
-- Explain Servent Structure
+<details>
+<summary>
+What is the purpose of SO-REUSEADDR option? Explain.
+</summary>
 
+- SO_REUSEADDR allows a listening server to start and bind its well-known port, even if previously established connections exist that use this port as their local port. This condition is typically encountered as follows: 
+  - a. A listening server is started.
+  - b. A connection request arrives and a child process is spawned to handle that client.
+  - c. The listening server terminates, but the child continues to service the client on the existing connection.
+  - d. The listening server is restarted.
+- SO_REUSEADDR allows a new server to be started on the same port as an existing server that is bound to the wildcard address, as long as each instance binds a different local IP address. This is common for a site hosting multiple HTTP servers using the IP alias technique
+- SO_REUSEADDR allows a single process to bind the same port to multiple sockets, as long as each bind specifies a different local IP address.
 
-- What do you mean by connected UDP sockets? Does it start the 3WHS (3-way handshake) process? What is the purpose of specifying `AF_UNSPEC` in address family of connect call in case of UDP sockets.
-- How the port number allocated to a UDP client if it does not call bind().
+</details>
+
+<details>
+<summary>What do you mean by connected UDP sockets? </summary>
+
+Does it start the 3WHS (3-way handshake) process? 
+What is the purpose of specifying `AF_UNSPEC` in address family of connect call in case of UDP sockets.
+
+- An unconnected UDP socket, the default when we create a UDP socket.
+- A connected UDP socket, the result of calling connect on a UDP socket.
+
+With a connected UDP socket, three things change, compared to the default unconnected UDP socket:
+
+- We can no longer specify the destination IP address and port for an output operation. That is, we do not use sendto, but write or send instead. Anything written to a connected UDP socket is automatically sent to the protocol address (e.g., IP address and port) specified by connect.
+- We do not need to use recvfrom to learn the sender of a datagram, but read, recv, or recvmsg instead. The only datagrams returned by the kernel for an input operation on a connected UDP socket are those arriving from the protocol address specified in connect. Datagrams destined to the connected UDP socket's local protocol address (e.g., IP address and port) but arriving from a protocol address other than the one to which the socket was connected are not passed to the connected socket. This limits a connected UDP socket to exchanging datagrams with one and only one peer.
+- Asynchronous errors are returned to the process for connected UDP sockets.
+
+</details>
+
+<details>
+<summary>
+How the port number allocated to a UDP client if it does not call bind().
+</summary>
+
+With a UDP socket, the first time the process calls sendto, if the socket has not yet had a local port bound to it, that is when an ephemeral port is chosen by the kernel for the socket.
+
+</details>
+
+<details>
+<summary>What are the different ways of setting RES_USE_INET6 resolver option?</summary>
+
+We use this option to tell `gethostbyname` if we need IPv6 address in return instead of IPv4.
+Enabling RES_USE_INET6 caused gethostbyname to look up AAAA records first, and only look up A records if a name had no AAAA records. Since the hostent structure only has one address length field, gethostbyname could only return either IPv6 or IPv4 addresses, but not both.
+
+Three ways to set it -
+
+- Per application basis : application can itself set it by calling `res_init()` function. Then setting `_res.options |= RES_USE_INET6`. This must be done before `gethostbyname` to take effect.
+- Per user basis : `RES_OPTIONS` environment variable - like `export RES_OPTION = inet6`
+- Per system basis : Resolver's config file at `/etc/resolv.conf` can contain a line `options inet6`. This affects all aplications, because it is set in resolvers configuration.
+
+</details>
+
+<details>
+<summary>Explain Servent Structure.</summary>
+
+```
+struct servent{
+  char*  s_name;    // official service name
+  char** s_aliases; // alias list
+  int    s_port;    // service port number, network byte order
+  char*  s_proto;   // protocol to use
+}
+```
+</details>
 
 ## Diagrams
 
@@ -469,7 +619,7 @@ Section 7.5
 
 page 54, Fig 2.2
 
-![page 54, Fig 2.2](./data/tcp-3-way-handshake.png)
+![page 54, Fig 2.2](data/tcp-3-way-handshake.png)
 
 </details>
 
@@ -479,19 +629,66 @@ With the help of a diagram show how actual packet exchange takes place for a com
 
 page 59, Fig 2.5
 
-![page 59, Fig 2.5](./data/tcp-packet-exchange.png)
+![page 59, Fig 2.5](data/tcp-packet-exchange.png)
 
 </details>
 
--------------
+<details>
+<summary>
+Draw the diagram to show connections between client host, resolvers and name server.
+</summary>
 
-- Draw the diagram to show connections between client host, resolvers and name server.
+![DNS](data/dns.png)
 
-- Assume that a client performs two writes: the first of 4 bytes and the second of 396 bytes. Also assume that the server's delayed ACK time is 100 ms, the RTT between the client and the server is 100ms, and the server' s processing time for the client's request is 50ms. Draw a timeline that shows the interaction of Nagle Algorithm with delayed ACKs. Also draw the timeline chart if TCP_NODELAY socket option is set.
+</details>
+
+<details>
+<summary>
+Assume that a client performs two writes: the first of 4 bytes and the second of 396 bytes. Also assume that the server's delayed ACK time is 100 ms, the RTT between the client and the server is 100ms and the server' s processing time for the client's request is 50ms. Draw a timeline that shows the interaction of Nagle Algorithm with delayed ACKs. Also draw the timeline chart if TCP_NODELAY socket option is set.
+</summary>
+
+- Assume a client sends a 400-byte request to its server, but this is a 4-byte request type followed by 396 bytes of request data. 
+- If the client performs a 4-byte write followed by a 396-byte write, the second write will not be sent by the client TCP until the server TCP acknowledges the 4-byte write. 
+- Also, since the server application cannot operate on the 4 bytes of data until it receives the remaining 396 bytes of data, the server TCP will delay the ACK of the 4 bytes of data (i.e., there will not be any data from the server to the client on which to piggyback the ACK). 
+ 
+There are three ways to fix this type of client -
+
+1. Use `writev` instead of two calls to write. A single call to writev ends up with one call to TCP output instead of two calls, resulting in one TCP segment for our example. This is the preferred solution.
+2. Copy the 4 bytes of data and the 396 bytes of data into a single buffer and call write once for this buffer.
+3. Set the `TCP_NODELAY` socket option and continue to call write two times. This is the least desirable solution, and is harmful to the network, so it generally should not even be considered.
+
+#### Interaction of Nagle with delayed ACKs. 
+
+If set, this option disables TCP's Nagle algorithm. By default, this algorithm is enabled. 
+
+The problem is with other clients whose servers do not generate traffic in the reverse direction on which ACKs can piggyback. These clients can detect noticeable delays because the client TCP will not send any data to the server until the server's delayed ACK timer expires. These clients need a way to disable the Nagle algorithm, hence the TCP_NODELAY option.
+
+![Interaction of Nagle with delayed ACKs](data/nagle-a.png)
+
+#### When TCP_NODELAY is set
+
+![When TCP_NODELAY is set](data/nagle-b.png)
+
+#### Process calls writev one time for both buffers
+
+![Process calls writev one time for both buffers](data/nagle-c.png)
+
+</details>
 
 ## Logical
 
-- We have two applications, one using TCP and other using UDP. 4096 bytes are in the receive buffer for the TCP socket and two 2048-bye datagrams are in the receive buffer for the UDP socket. The TCP application calls read() with the third argument of 4096 and UDP applicationcalls recvfrom() with third argument of 4096, Is there any difference?
+
+<details>
+<summary>
+We have two applications, one using TCP and other using UDP. 
+</summary>
+
+We have two applications, one using TCP and other using UDP. 4096 bytes are in the receive buffer for the TCP socket and two 2048-bye datagrams are in the receive buffer for the UDP socket. The TCP application calls read() with the third argument of 4096 and UDP applicationcalls recvfrom() with third argument of 4096, Is there any difference?
+
+- UDP returns only one segment at a time, and TCP will give both.
+- Yes, read returns 4,096 bytes of data, but the recvfrom returns 2,048 (the first of the two datagrams). A recvfrom on a datagram socket never returns more than one datagram, regardless of how much the application asks for.
+
+</details>
 
 <details>
 <summary>

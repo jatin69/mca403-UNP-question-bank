@@ -7,7 +7,7 @@
 #define SERVER_ADDR "173.194.72.94"
 #define SERVER_PORT 80
 
-int main()
+int main(int argc, char** argv)
 {
 	char myIP[16];
 	unsigned int myPort;
